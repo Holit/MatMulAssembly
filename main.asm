@@ -300,141 +300,146 @@ GetMatirxCol PROC,
 		ret
 GetMatirxCol ENDP
 
-;Calcualte matrix multipy
+;Calcualte matrix multipy, A x B = R
 ;para:
-; _szMat1
+; _szMat1: string of first Matrix, A
+; _szMat2: string of next Matrix, B
+; _result: target array of dword which shall storge the matrix.
+;retn:
+; eax, address of _result.
+;!!not stable!!
 CalculateMatrix PROC,
-	_szMat1: ptr BYTE,
-	_szMat2: ptr BYTE,
-	_result: ptr DWORD
+		_szMat1: ptr BYTE,
+		_szMat2: ptr BYTE,
+		_result: ptr DWORD
 
-	local @result:	DWORD
-	local @_r1:DWORD
-	local @_r2:DWORD
-	local @_c1:DWORD
-	local @_c2:DWORD
-	local @Mat1: ptr DWORD
-	local @Mat2: ptr DWORD
-	local @MatRes: ptr DWORD
-	local @temp: ptr DWORD
+		local @result:	DWORD
+		local @_r1:DWORD
+		local @_r2:DWORD
+		local @_c1:DWORD
+		local @_c2:DWORD
+		local @Mat1: ptr DWORD
+		local @Mat2: ptr DWORD
+		local @MatRes: ptr DWORD
+		local @temp: ptr DWORD
 
-	local @i: DWORD
-	local @_f: DWORD
-	local @k: DWORD
-	local @n: DWORD
+		local @i: DWORD
+		local @_f: DWORD
+		local @k: DWORD
+		local @n: DWORD
 
-	local @tmp[16] : byte
+		local @tmp[16] : byte
 
-	pushad
-	mov @_r1, 0
-	mov @_r2, 0
-	mov @_c1, 0
-	mov @_c2, 0
+		pushad
+		mov @_r1, 0
+		mov @_r2, 0
+		mov @_c1, 0
+		mov @_c2, 0
 
-	push _szMat1
-	call GetMatirxRow
-	mov @_r1,eax
+		push _szMat1
+		call GetMatirxRow
+		mov @_r1,eax
 
-	push _szMat1
-	call GetMatirxCol
-	mov @_c1,eax
+		push _szMat1
+		call GetMatirxCol
+		mov @_c1,eax
 
-	push _szMat2
-	call GetMatirxRow
-	mov @_r2,eax
+		push _szMat2
+		call GetMatirxRow
+		mov @_r2,eax
 
-	push _szMat2
-	call GetMatirxCol
-	mov @_c2,eax
+		push _szMat2
+		call GetMatirxCol
+		mov @_c2,eax
 
-	push eax
-	mov eax,@_c2
-	cmp eax,@_r1
-	jnz _exception_size
-	pop eax
+		push eax
+		mov eax,@_c2
+		cmp eax,@_r1
+		jnz _exception_size
+		pop eax
 
-	push eax
-	mov eax, @_c2
-	imul eax, @_r1
-	imul eax, 4
-	push eax
-	call AllocateAndZeroMemory
-	mov _result, eax
-	pop eax
+		push eax
+		mov eax, @_c2
+		imul eax, @_r1
+		imul eax, 4
+		push eax
+		call AllocateAndZeroMemory
+		mov _result, eax
+		pop eax
 
-	;getiing first string data
-	mov @i,0
-	mov @k,0
-	mov @_f,0
+		;getiing first string data
+		mov @i,0
+		mov @k,0
+		mov @_f,0
 
-_reading_string_loop:
-	mov ecx, dword ptr @i
-	movsx edx, byte ptr _szMat1[ecx]
-	; if ( [edx] < '0'
-	cmp edx, 30h	;'0'
-	jl short _not_digits
-	; || > '9') goto _not_digits	
-	cmp edx, 39h	;'9'
-	jg short _not_digits
-	
-	mov edx, dword ptr @k
-	mov eax, dword ptr @i
-	mov cl, byte ptr _szMat1[eax]
-	mov byte ptr @tmp[edx], cl
+	_reading_string_loop:
+		mov ecx, dword ptr @i
+		movsx edx, byte ptr _szMat1[ecx]
+		; if ( [edx] < '0'
+		cmp edx, 30h	;'0'
+		jl short _not_digits
+		; || > '9') goto _not_digits	
+		cmp edx, 39h	;'9'
+		jg short _not_digits
 
-	mov edx,dword ptr @k
-	add edx, 1
-	mov dword ptr @k, edx
-	jmp _inc_i
-_is_digits:
-;if char is digits, this will copy strings to tmp
-	cmp dword ptr @k,0
-	jne short _not_digits
-	mov eax, dword ptr @i
-	add eax,1
-	mov dword ptr @i, eax
-	jmp _after_while
-_not_digits:
-;if char is not digits, convert temp string to integer and storging.
-	lea ecx, dword ptr @tmp
-	push ecx
-	call crt_atoi
-	add esp,4
-	mov edx, dword ptr @_f
-	mov dword ptr _result[edx*4], eax
-	mov eax, dword ptr @_f
-	add eax,1
-	mov dword ptr @_f, eax
-	mov dword ptr @k, 0
-	
-	push 16
-	lea eax, @tmp
-	push eax
-	call RtlZeroMemory
-_inc_i:
-	mov edx, dword ptr @i
-	add edx, 1
-	mov dword ptr @i,edx
-_after_while:
-	mov eax, dword ptr @i
-	movsx ecx, byte ptr @tmp[eax -1]
-	test ecx,ecx
-	jne _reading_string_loop
-	;Reading string 1 end.
+		mov edx, dword ptr @k
+		mov eax, dword ptr @i
+		mov cl, byte ptr _szMat1[eax]
+		mov byte ptr @tmp[edx], cl
 
+		mov edx,dword ptr @k
+		add edx, 1
+		mov dword ptr @k, edx
+		jmp _inc_i
+	_is_digits:
+	;if char is digits, this will copy strings to tmp
+		cmp dword ptr @k,0
+		jne short _not_digits
+		mov eax, dword ptr @i
+		add eax,1
+		mov dword ptr @i, eax
+		jmp _after_while
+	_not_digits:
+	;if char is not digits, convert temp string to integer and storging.
+		lea ecx, dword ptr @tmp
+		push ecx
+		call crt_atoi
+		add esp,4
+		mov edx, dword ptr @_f
+		mov dword ptr _result[edx*4], eax
+		mov eax, dword ptr @_f
+		add eax,1
+		mov dword ptr @_f, eax
+		mov dword ptr @k, 0
 
+		push 16
+		lea eax, @tmp
+		push eax
+		call RtlZeroMemory
+	_inc_i:
+		mov edx, dword ptr @i
+		add edx, 1
+		mov dword ptr @i,edx
+	_after_while:
+		mov eax, dword ptr @i
+		movsx ecx, byte ptr @tmp[eax -1]
+		test ecx,ecx
+		jne _reading_string_loop
+		;Reading string 1 end.
 
-_normal_exit:
-	mov @result,eax	;This will allowing access the result matrix
-	popad
-	ret
-	
-_exception_size:
-	popad
-	mov @result,0;This will create null pointer.
-	ret
+		;Not stable !
+	_normal_exit:
+		mov @result,eax	;This will allowing access the result matrix
+		popad
+		ret
+
+	_exception_size:
+		popad
+		mov @result,0;This will create null pointer.
+		ret
 CalculateMatrix ENDP
 
+;Entrypoint.
 main PROC
 	local @_argc:DWORD
 
@@ -547,12 +552,6 @@ main PROC
 	
 	mov dword ptr @tmp,0 
 
-	;
-	;CalculateMatrix PROC,
-	;_szMat1: ptr BYTE,
-	;_szMat2: ptr BYTE,
-	;_result: ptr DWORD
-	;
 	push @lpMatRes
 	push @szMat2
 	push @szMat1
