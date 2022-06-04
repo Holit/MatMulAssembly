@@ -37,15 +37,14 @@ szr_plus db "r+",0
 szw_plus db "w+",0
 szResult db "Result:\n",0
 
-chBlank	= ' ',0
-chDeli = '"',0
+chBlank	db ' ',0
+chDeli db '"',0
 chCRLF db '\n',0	;This CRLF is incorrect due to it's two bytes wide
 					; thus we use 0dh to determine this charater.
 					; Which may cause error.
 
 ;datas
 .data
-
 ;undefined datas
 .data?
 ;prefix hf:
@@ -297,6 +296,7 @@ GetMatirxCol PROC,
 	GetMatirxCol_END:
 		popad
 		mov eax,@m
+		add eax,1
 		ret
 GetMatirxCol ENDP
 
@@ -304,24 +304,26 @@ GetMatirxCol ENDP
 ;para:
 ; _szMat1: string of first Matrix, A
 ; _szMat2: string of next Matrix, B
-; _result: target array of dword which shall storge the matrix.
+; _result: target address to storge matrix, string.
 ;retn:
 ; eax, address of _result.
 ;!!not stable!!
 CalculateMatrix PROC,
 		_szMat1: ptr BYTE,
 		_szMat2: ptr BYTE,
-		_result: ptr DWORD
+		_result: ptr BYTE
 
 		local @result:	DWORD
 		local @_r1:DWORD
 		local @_r2:DWORD
 		local @_c1:DWORD
 		local @_c2:DWORD
+
 		local @Mat1: ptr DWORD
 		local @Mat2: ptr DWORD
 		local @MatRes: ptr DWORD
-		local @temp: ptr DWORD
+
+		local @p: ptr DWORD	;for temporary pointer calculate
 
 		local @i: DWORD
 		local @_f: DWORD
@@ -335,7 +337,7 @@ CalculateMatrix PROC,
 		mov @_r2, 0
 		mov @_c1, 0
 		mov @_c2, 0
-
+	;Getting information of string martix.
 		push _szMat1
 		call GetMatirxRow
 		mov @_r1,eax
@@ -351,20 +353,39 @@ CalculateMatrix PROC,
 		push _szMat2
 		call GetMatirxCol
 		mov @_c2,eax
-
+		
+	;test if matrix is appropriate
 		push eax
 		mov eax,@_c2
 		cmp eax,@_r1
-		jnz _exception_size
+		jnz _exception_size	;if not equal
 		pop eax
 
 		push eax
 		mov eax, @_c2
 		imul eax, @_r1
+		imul eax, 4	;type dword
+		push eax
+		call AllocateAndZeroMemory
+		mov @MatRes, eax
+		pop eax		
+
+		push eax
+		mov eax, @_c1
+		imul eax, @_r1
 		imul eax, 4
 		push eax
 		call AllocateAndZeroMemory
-		mov _result, eax
+		mov @Mat1, eax
+		pop eax		
+
+		push eax
+		mov eax, @_c2
+		imul eax, @_r2
+		imul eax, 4
+		push eax
+		call AllocateAndZeroMemory
+		mov @Mat2, eax
 		pop eax
 
 		;getiing first string data
@@ -372,70 +393,181 @@ CalculateMatrix PROC,
 		mov @k,0
 		mov @_f,0
 
-	_reading_string_loop:
+	_read_string_loop_1:
 		mov ecx, dword ptr @i
-		movsx edx, byte ptr _szMat1[ecx]
+		push ecx
+		add ecx, _szMat1
+		movsx edx, byte ptr [ecx]
+		pop ecx
 		; if ( [edx] < '0'
 		cmp edx, 30h	;'0'
-		jl short _not_digits
-		; || > '9') goto _not_digits	
+		jl short _is_not_digits_1
+		; || > '9') goto _is_not_digits_1	
 		cmp edx, 39h	;'9'
-		jg short _not_digits
+		jg short _is_not_digits_1
 
 		mov edx, dword ptr @k
 		mov eax, dword ptr @i
-		mov cl, byte ptr _szMat1[eax]
-		mov byte ptr @tmp[edx], cl
+		push eax
+		add eax, _szMat1
+		mov cl, byte ptr [eax]
+		pop eax
+		push edx
+		push eax
+		lea eax, dword ptr @tmp
+		add edx, eax
+		mov [edx], ecx
+		pop eax
+		pop edx
 
 		mov edx,dword ptr @k
 		add edx, 1
 		mov dword ptr @k, edx
-		jmp _inc_i
-	_is_digits:
+		jmp _inc_i_1
+	_is_digits_1:
 	;if char is digits, this will copy strings to tmp
 		cmp dword ptr @k,0
-		jne short _not_digits
+		jne short _is_not_digits_1
 		mov eax, dword ptr @i
 		add eax,1
 		mov dword ptr @i, eax
-		jmp _after_while
-	_not_digits:
+		jmp _loop_end_1
+	_is_not_digits_1:
 	;if char is not digits, convert temp string to integer and storging.
+		cmp @k,0
+		jz _clear_tmp_1
 		lea ecx, dword ptr @tmp
 		push ecx
 		call crt_atoi
 		add esp,4
 		mov edx, dword ptr @_f
-		mov dword ptr _result[edx*4], eax
+		push edx
+		imul edx,4
+		add edx, @Mat1
+		mov [edx],eax
+		pop edx
+		mov dword ptr @p, eax
 		mov eax, dword ptr @_f
 		add eax,1
 		mov dword ptr @_f, eax
 		mov dword ptr @k, 0
-
+	_clear_tmp_1:
 		push 16
 		lea eax, @tmp
 		push eax
 		call RtlZeroMemory
-	_inc_i:
+	_inc_i_1:
 		mov edx, dword ptr @i
 		add edx, 1
 		mov dword ptr @i,edx
-	_after_while:
+	_loop_end_1:
 		mov eax, dword ptr @i
-		movsx ecx, byte ptr @tmp[eax -1]
+		push eax
+		add eax, _szMat1
+		sub eax, 1
+		movsx ecx, byte ptr [eax]
+		pop eax
 		test ecx,ecx
-		jne _reading_string_loop
+		jne _read_string_loop_1
 		;Reading string 1 end.
 
+	
+		push 16
+		lea eax, @tmp
+		push eax
+		call RtlZeroMemory
+		mov @i,0
+		mov @k,0
+		mov @_f,0
+
+	_read_string_loop_2:
+		mov ecx, dword ptr @i
+		push ecx
+		add ecx, _szMat2
+		movsx edx, byte ptr [ecx]
+		pop ecx
+		; if ( [edx] < '0'
+		cmp edx, 30h	;'0'
+		jl short _is_not_digits_2
+		; || > '9') goto _is_not_digits_2	
+		cmp edx, 39h	;'9'
+		jg short _is_not_digits_2
+
+		mov edx, dword ptr @k
+		mov eax, dword ptr @i
+		push eax
+		add eax, _szMat2
+		mov cl, byte ptr [eax]
+		pop eax
+		push edx
+		push eax
+		lea eax, dword ptr @tmp
+		add edx, eax
+		mov [edx], ecx
+		pop eax
+		pop edx
+
+		mov edx,dword ptr @k
+		add edx, 1
+		mov dword ptr @k, edx
+		jmp _inc_i_2
+	_is_digits_2:
+	;if char is digits, this will copy strings to tmp
+		cmp dword ptr @k,0
+		jne short _is_not_digits_2
+		mov eax, dword ptr @i
+		add eax,1
+		mov dword ptr @i, eax
+		jmp _loop_end_2
+	_is_not_digits_2:
+	;if char is not digits, convert temp string to integer and storging.
+		cmp @k,0
+		jz _clear_tmp_2
+		lea ecx, dword ptr @tmp
+		push ecx
+		call crt_atoi
+		add esp,4
+		mov edx, dword ptr @_f
+		push edx
+		imul edx,4
+		add edx, @Mat2
+		mov [edx],eax
+		pop edx
+		mov dword ptr @p, eax
+		mov eax, dword ptr @_f
+		add eax,1
+		mov dword ptr @_f, eax
+		mov dword ptr @k, 0
+	_clear_tmp_2:
+		push 16
+		lea eax, @tmp
+		push eax
+		call RtlZeroMemory
+	_inc_i_2:
+		mov edx, dword ptr @i
+		add edx, 1
+		mov dword ptr @i,edx
+	_loop_end_2:
+		mov eax, dword ptr @i
+		push eax
+		add eax, _szMat2
+		sub eax, 1
+		movsx ecx, byte ptr [eax]
+		pop eax
+		test ecx,ecx
+		jne _read_string_loop_2
+		;Reading string 2 end.
+		;--reding digits stable--
+		int 21h
 		;Not stable !
 	_normal_exit:
-		mov @result,eax	;This will allowing access the result matrix
+		mov eax,_result
 		popad
 		ret
 
 	_exception_size:
 		popad
-		mov @result,0;This will create null pointer.
+		xor eax,eax
 		ret
 CalculateMatrix ENDP
 
@@ -449,8 +581,6 @@ main PROC
 	local @szMat1: 		ptr BYTE
 	local @szMat2: 		ptr BYTE
 	local @szSav: 		ptr BYTE
-	
-	local @lpMatRes:		ptr DWORD
 
 	local @lpFile1:DWORD
 	local @lpFile2:DWORD
@@ -458,6 +588,7 @@ main PROC
 
 	local @tmp:DWORD
 
+	
 	call GetArgc
 	mov @_argc,eax
 	cmp @_argc,4
@@ -552,13 +683,19 @@ main PROC
 	
 	mov dword ptr @tmp,0 
 
-	push @lpMatRes
+	push @szSav
 	push @szMat2
 	push @szMat1
+	;call core function.
 	call CalculateMatrix
+	;test if return value vaild.
 	cmp eax, 0
 	je _exception_size
+
 	int 21h
+
+	;Save file.
+	;call SaveFile
 	jmp _normal_exit
 
 	
@@ -588,7 +725,7 @@ _normal_exit:
 
 	mov esp,ebp
 	pop ebp
-	mov eax,0
+	xor eax, eax
 	ret
 main ENDP
 END main
