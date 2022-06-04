@@ -36,6 +36,7 @@ szd db "%d",0
 szr_plus db "r+",0
 szw_plus db "w+",0
 szResult db "Result:\n",0
+szCRLF db '\r\n',0	;Real CRLF
 
 chBlank	db ' ',0
 chDeli db '"',0
@@ -222,16 +223,10 @@ AllocateAndZeroMemory PROC,
 		push _dwSize
 		push GPTR
 		call GlobalAlloc
-
 		cmp eax,0
-		jz allocation
+		jz allocation	;allocation failure loop
 
 		mov @addr,eax
-
-		push _dwSize
-		push @addr
-		call RtlZeroMemory
-
 		popad
 		mov eax,@addr
 		ret
@@ -300,18 +295,21 @@ GetMatirxCol PROC,
 		ret
 GetMatirxCol ENDP
 
-;Calcualte matrix multipy, A x B = R
-;para:
-; _szMat1: string of first Matrix, A
-; _szMat2: string of next Matrix, B
-; _result: target address to storge matrix, string.
-;retn:
-; eax, address of _result.
-;!!not stable!!
-CalculateMatrix PROC,
-		_szMat1: ptr BYTE,
-		_szMat2: ptr BYTE,
-		_result: ptr BYTE
+
+;Entrypoint.
+main PROC
+		local @_argc:DWORD
+
+		local @szMatPath1: 	ptr BYTE
+		local @szMatPath2: 	ptr BYTE
+		local @szSavePath: 	ptr BYTE 
+		local @szMat1: 		ptr BYTE
+		local @szMat2: 		ptr BYTE
+		local @szSav: 		ptr BYTE
+
+		local @lpFile1:DWORD
+		local @lpFile2:DWORD
+		local @lpSave:DWORD
 
 		local @result:	DWORD
 		local @_r1:DWORD
@@ -332,27 +330,120 @@ CalculateMatrix PROC,
 
 		local @tmp[16] : byte
 
-		local @elec : DWORD
+		local @length: DWORD
 
-		pushad
+		call GetArgc
+		mov @_argc,eax
+		cmp @_argc,4
+		jnz _too_few_arguments
+
+		push 1000h
+		call AllocateAndZeroMemory
+		mov @szMatPath1,eax
+
+		push 1000h
+		call AllocateAndZeroMemory
+		mov @szMatPath2,eax
+
+		push 1000h
+		call AllocateAndZeroMemory
+		mov @szSavePath,eax
+
+		push 1000h
+		call AllocateAndZeroMemory
+		mov @szMat1,eax
+
+		push 1000h
+		call AllocateAndZeroMemory
+		mov @szMat2,eax
+
+		push 1000h
+		call AllocateAndZeroMemory
+		mov @szSav,eax
+
+		push 100h
+		push @szMatPath1
+		push 1
+		call GetArgv
+
+		push 100h
+		push @szMatPath2
+		push 2
+		call GetArgv
+
+		push 100h
+		push @szSavePath
+		push 3
+		call GetArgv
+
+		;Open File1	
+		push 0
+		push FILE_ATTRIBUTE_ARCHIVE
+		push OPEN_EXISTING
+		push 0
+		push FILE_SHARE_READ
+		push GENERIC_READ
+		push @szMatPath1
+		call CreateFile
+
+		mov hfMat1,eax
+
+		push FILE_BEGIN
+		push 0
+		push 0
+		push hfMat1
+		call SetFilePointer
+		;READ
+		push NULL
+		push 100h
+		push @szMat1
+		push hfMat1
+		call ReadFile
+
+		;Open File2
+		push 0
+		push FILE_ATTRIBUTE_ARCHIVE
+		push OPEN_EXISTING
+		push 0
+		push FILE_SHARE_READ
+		push GENERIC_READ
+		push @szMatPath2
+		call CreateFile
+
+		mov hfMat2,eax
+
+		push FILE_BEGIN
+		push 0
+		push 0
+		push hfMat2
+		call SetFilePointer
+		;READ
+		push NULL
+		push 100h
+		push @szMat2
+		push hfMat2
+		call ReadFile
+
+		mov dword ptr @tmp,0 
+
 		mov @_r1, 0
 		mov @_r2, 0
 		mov @_c1, 0
 		mov @_c2, 0
 	;Getting information of string martix.
-		push _szMat1
+		push @szMat1
 		call GetMatirxRow
 		mov @_r1,eax
 
-		push _szMat1
+		push @szMat1
 		call GetMatirxCol
 		mov @_c1,eax
 
-		push _szMat2
+		push @szMat2
 		call GetMatirxRow
 		mov @_r2,eax
 
-		push _szMat2
+		push @szMat2
 		call GetMatirxCol
 		mov @_c2,eax
 		
@@ -360,7 +451,7 @@ CalculateMatrix PROC,
 		push eax
 		mov eax,@_c2
 		cmp eax,@_r1
-		jnz _exception_size	;if not equal
+		jnz _exception_size
 		pop eax
 
 
@@ -382,6 +473,7 @@ CalculateMatrix PROC,
 		mov @Mat2, eax
 		pop eax
 
+		pushad
 		;getiing first string data
 		mov @i,0
 		mov @k,0
@@ -390,7 +482,7 @@ CalculateMatrix PROC,
 	_read_string_loop_1:
 		mov ecx, dword ptr @i
 		push ecx
-		add ecx, _szMat1
+		add ecx, @szMat1
 		movsx edx, byte ptr [ecx]
 		pop ecx
 		; if ( [edx] < '0'
@@ -403,7 +495,7 @@ CalculateMatrix PROC,
 		mov edx, dword ptr @k
 		mov eax, dword ptr @i
 		push eax
-		add eax, _szMat1
+		add eax, @szMat1
 		mov cl, byte ptr [eax]
 		pop eax
 		push edx
@@ -457,7 +549,7 @@ CalculateMatrix PROC,
 	_loop_end_1:
 		mov eax, dword ptr @i
 		push eax
-		add eax, _szMat1
+		add eax, @szMat1
 		sub eax, 1
 		movsx ecx, byte ptr [eax]
 		pop eax
@@ -477,7 +569,7 @@ CalculateMatrix PROC,
 	_read_string_loop_2:
 		mov ecx, dword ptr @i
 		push ecx
-		add ecx, _szMat2
+		add ecx, @szMat2
 		movsx edx, byte ptr [ecx]
 		pop ecx
 		; if ( [edx] < '0'
@@ -490,7 +582,7 @@ CalculateMatrix PROC,
 		mov edx, dword ptr @k
 		mov eax, dword ptr @i
 		push eax
-		add eax, _szMat2
+		add eax, @szMat2
 		mov cl, byte ptr [eax]
 		pop eax
 		push edx
@@ -544,7 +636,7 @@ CalculateMatrix PROC,
 	_loop_end_2:
 		mov eax, dword ptr @i
 		push eax
-		add eax, _szMat2
+		add eax, @szMat2
 		sub eax, 1
 		movsx ecx, byte ptr [eax]
 		pop eax
@@ -646,180 +738,121 @@ CalculateMatrix PROC,
 	_calc_8:	;27
 		jmp _calc_1
 	_calc_9:	;24
-
+		popad 
 	;--stable--
 	;test: normal matrix passed
 	;test: Square passed
 		
+		push 1000h
+		call AllocateAndZeroMemory
+		mov @szSav,eax
+
+		mov dword ptr @length, 0
+		;col = @_C2
+		;row = @_r1
+
+	_save_1:;5
+		mov dword ptr @i, 0
+		jmp _save_3
+	_save_2:;2
+		mov eax, dword ptr @i
+		add eax, 1
+		mov dword ptr @i, eax
+	_save_3:;4
+		mov eax, @_c2
+		imul eax, @_r1
+		cmp dword ptr @i, eax
+		jge  _save_6
+		mov ecx, dword ptr @i
+		push ecx
+		imul ecx, 4
+		add ecx, @MatRes
+		mov edx, dword ptr [ecx];check here
+		pop ecx
+		push edx
+		push offset szd
+		mov eax, dword ptr @szSav
+		push eax
+		call crt_strlen
+		add esp,4
+		add eax, dword ptr @szSav
+		push eax
+		call crt_sprintf
+		add esp,12
+		mov eax, dword ptr @i
+		add eax, 1
+		cdq		;Convert Double to Quad, prepare for dividing
+				;here we shall mod length (offset) to col number to determine
+				; whether should postfix a blank or crlf
+		idiv dword ptr @_c2
+		test edx, edx
+		jne _save_4
+		push offset szCRLF
+		mov ecx, dword ptr @szSav
+		push ecx
+		call crt_strlen
+		add esp, 4
+		add eax, dword ptr @szSav
+		push eax
+		call crt_sprintf
+		add esp, 8
+		jmp _save_5
+	_save_4:;6
+		push offset chBlank
+		mov edx, dword ptr @szSav
+		push edx
+		call crt_strlen
+		add esp,4
+		add eax, dword ptr @szSav
+		push eax
+		call crt_sprintf
+		add esp,8
+	_save_5:;7
+		jmp _save_2
+	_save_6:;3
+		push GPTR
+		mov eax, dword ptr @szSav
+		push eax
+		call crt_strlen
+		add esp,4
+		push eax
+		mov ecx, dword ptr @szSav
+		push ecx
+		call GlobalReAlloc
+		mov @szSav,eax
+		
 		int 21h
-		;Not stable !
-	_normal_exit:
-		mov eax,_result
-		popad
-		ret
+		jmp _normal_exit
 
+		;--stable--
 	_exception_size:
-		popad
-		xor eax,eax
+		push MB_ICONERROR
+		push offset szError
+		push offset szExceptionMatError
+		push NULL
+		call MessageBox
+
+		mov esp,ebp
+		pop ebp
+		mov eax,-3
 		ret
-CalculateMatrix ENDP
+	_too_few_arguments:
+		push MB_ICONERROR
+		push offset szError
+		push offset szExceptionTooFewArguments
+		push NULL
+		call MessageBox
 
-;Entrypoint.
-main PROC
-	local @_argc:DWORD
+		mov esp,ebp
+		pop ebp
+		mov eax,-1
+		ret
+	_normal_exit:
 
-	local @szMatPath1: 	ptr BYTE
-	local @szMatPath2: 	ptr BYTE
-	local @szSavePath: 	ptr BYTE 
-	local @szMat1: 		ptr BYTE
-	local @szMat2: 		ptr BYTE
-	local @szSav: 		ptr BYTE
-
-	local @lpFile1:DWORD
-	local @lpFile2:DWORD
-	local @lpSave:DWORD
-
-	local @tmp:DWORD
-
-	
-	call GetArgc
-	mov @_argc,eax
-	cmp @_argc,4
-	jnz _too_few_arguments
-	
-	push 1000h
-	call AllocateAndZeroMemory
-	mov @szMatPath1,eax
-
-	push 1000h
-	call AllocateAndZeroMemory
-	mov @szMatPath2,eax
-
-	push 1000h
-	call AllocateAndZeroMemory
-	mov @szSavePath,eax
-
-	push 1000h
-	call AllocateAndZeroMemory
-	mov @szMat1,eax
-
-	push 1000h
-	call AllocateAndZeroMemory
-	mov @szMat2,eax
-
-	push 1000h
-	call AllocateAndZeroMemory
-	mov @szSav,eax
-	
-	push 100h
-	push @szMatPath1
-	push 1
-	call GetArgv
-
-	push 100h
-	push @szMatPath2
-	push 2
-	call GetArgv
-
-	push 100h
-	push @szSavePath
-	push 3
-	call GetArgv
-
-	;Open File1	
-	push 0
-	push FILE_ATTRIBUTE_ARCHIVE
-	push OPEN_EXISTING
-	push 0
-	push FILE_SHARE_READ
-	push GENERIC_READ
-	push @szMatPath1
-	call CreateFile
-
-	mov hfMat1,eax
-
-	push FILE_BEGIN
-	push 0
-	push 0
-	push hfMat1
-	call SetFilePointer
-	;READ
-	push NULL
-	push 100h
-	push @szMat1
-	push hfMat1
-	call ReadFile
-
-	;Open File2
-	push 0
-	push FILE_ATTRIBUTE_ARCHIVE
-	push OPEN_EXISTING
-	push 0
-	push FILE_SHARE_READ
-	push GENERIC_READ
-	push @szMatPath2
-	call CreateFile
-
-	mov hfMat2,eax
-
-	push FILE_BEGIN
-	push 0
-	push 0
-	push hfMat2
-	call SetFilePointer
-	;READ
-	push NULL
-	push 100h
-	push @szMat2
-	push hfMat2
-	call ReadFile
-	
-	mov dword ptr @tmp,0 
-
-	push @szSav
-	push @szMat2
-	push @szMat1
-	;call core function.
-	call CalculateMatrix
-	;test if return value vaild.
-	cmp eax, 0
-	je _exception_size
-
-	int 21h
-
-	;Save file.
-	;call SaveFile
-	jmp _normal_exit
-
-	
-_exception_size:
-	push MB_ICONERROR
-	push offset szError
-	push offset szExceptionMatError
-	push NULL
-	call MessageBox
-
-	mov esp,ebp
-	pop ebp
-	mov eax,-3
-	ret
-_too_few_arguments:
-	push MB_ICONERROR
-	push offset szError
-	push offset szExceptionTooFewArguments
-	push NULL
-	call MessageBox
-	
-	mov esp,ebp
-	pop ebp
-	mov eax,-1
-	ret
-_normal_exit:
-
-	mov esp,ebp
-	pop ebp
-	xor eax, eax
-	ret
+		mov esp,ebp
+		pop ebp
+		xor eax, eax
+		ret
 main ENDP
 END main
 
