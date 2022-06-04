@@ -33,10 +33,11 @@ szNormalText db "This is a normal execution",0
 
 szld db "%ld",0
 szd db "%d",0
+szs db "%s",0
 szr_plus db "r+",0
 szw_plus db "w+",0
 szResult db "Result:\n",0
-szCRLF db '\r\n',0	;Real CRLF
+szCRLF db 09h,0ah,0	;Real CRLF
 
 chBlank	db ' ',0
 chDeli db '"',0
@@ -300,26 +301,22 @@ GetMatirxCol ENDP
 main PROC
 		local @_argc:DWORD
 
+		;pointers
 		local @szMatPath1: 	ptr BYTE
 		local @szMatPath2: 	ptr BYTE
 		local @szSavePath: 	ptr BYTE 
 		local @szMat1: 		ptr BYTE
 		local @szMat2: 		ptr BYTE
 		local @szSav: 		ptr BYTE
+		local @Mat1: ptr DWORD
+		local @Mat2: ptr DWORD
+		local @MatRes: ptr DWORD
 
-		local @lpFile1:DWORD
-		local @lpFile2:DWORD
-		local @lpSave:DWORD
-
-		local @result:	DWORD
 		local @_r1:DWORD
 		local @_r2:DWORD
 		local @_c1:DWORD
 		local @_c2:DWORD
 
-		local @Mat1: ptr DWORD
-		local @Mat2: ptr DWORD
-		local @MatRes: ptr DWORD
 
 		local @p: ptr DWORD	;for temporary pointer calculate
 
@@ -820,11 +817,92 @@ main PROC
 		push ecx
 		call GlobalReAlloc
 		mov @szSav,eax
+		;save to file
 		
+		push 0
+		push FILE_ATTRIBUTE_NORMAL
+		push CREATE_ALWAYS
+		push 0
+		push FILE_SHARE_WRITE
+		push GENERIC_WRITE
+		push @szSavePath
+		call CreateFile
+		mov hfSave,eax
+
+		;WINBASEAPI
+		;BOOL
+		;WINAPI
+		;WriteFile(
+		;    __in        HANDLE hFile,
+		;    __in_bcount(nNumberOfBytesToWrite) LPCVOID lpBuffer,
+		;    __in        DWORD nNumberOfBytesToWrite,
+		;    __out_opt   LPDWORD lpNumberOfBytesWritten,
+		;    __inout_opt LPOVERLAPPED lpOverlapped
+		;    );
+		push NULL
+		lea eax, @n
+		push eax
+		push @szSav
+		call crt_strlen
+		add esp,4
+		push eax
+		push @szSav
+		push hfSave
+		call WriteFile
+		cmp eax, 0
+		jnz _no_error
+		call GetLastError
 		int 21h
+	_report_error:
+		
+	_no_error:
+		push @szSav
+		push offset szs
+		call crt_printf
+		;int 21h	;debug test
+		;free spaces
+		;already allocated spaces:
+		;
+		;local @szMatPath1: 	ptr BYTE
+		;local @szMatPath2: 	ptr BYTE
+		;local @szSavePath: 	ptr BYTE 
+		;local @szMat1: 		ptr BYTE
+		;local @szMat2: 		ptr BYTE
+		;local @szSav: 		ptr BYTE
+		;local @Mat1: ptr DWORD
+		;local @Mat2: ptr DWORD
+		;local @MatRes: ptr DWORD
+		push @szMatPath1
+		call GlobalFree
+		push @szMatPath2
+		call GlobalFree
+		push @szSavePath
+		call GlobalFree
+
+		push @szMat1
+		call GlobalFree
+		push @szMat2
+		call GlobalFree
+		push @szSav
+		call GlobalFree
+
+		push @Mat1
+		call GlobalFree
+		push @Mat2
+		call GlobalFree
+		push @MatRes
+		call GlobalFree
+		;closing handles
+		;hf*
+		push hfMat1
+		call CloseHandle
+		push hfMat2
+		call CloseHandle
+		push hfSave
+		call CloseHandle
+
 		jmp _normal_exit
 
-		;--stable--
 	_exception_size:
 		push MB_ICONERROR
 		push offset szError
@@ -834,8 +912,8 @@ main PROC
 
 		mov esp,ebp
 		pop ebp
-		mov eax,-3
-		ret
+		push -3
+		call ExitProcess
 	_too_few_arguments:
 		push MB_ICONERROR
 		push offset szError
@@ -845,14 +923,15 @@ main PROC
 
 		mov esp,ebp
 		pop ebp
-		mov eax,-1
-		ret
+		push -1
+		call ExitProcess
 	_normal_exit:
 
 		mov esp,ebp
 		pop ebp
 		xor eax, eax
-		ret
+		push eax
+		call ExitProcess
 main ENDP
 END main
 
