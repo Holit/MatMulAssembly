@@ -326,11 +326,13 @@ CalculateMatrix PROC,
 		local @p: ptr DWORD	;for temporary pointer calculate
 
 		local @i: DWORD
-		local @_f: DWORD
+		local @j: DWORD
 		local @k: DWORD
 		local @n: DWORD
 
 		local @tmp[16] : byte
+
+		local @elec : DWORD
 
 		pushad
 		mov @_r1, 0
@@ -361,14 +363,6 @@ CalculateMatrix PROC,
 		jnz _exception_size	;if not equal
 		pop eax
 
-		push eax
-		mov eax, @_c2
-		imul eax, @_r1
-		imul eax, 4	;type dword
-		push eax
-		call AllocateAndZeroMemory
-		mov @MatRes, eax
-		pop eax		
 
 		push eax
 		mov eax, @_c1
@@ -391,7 +385,7 @@ CalculateMatrix PROC,
 		;getiing first string data
 		mov @i,0
 		mov @k,0
-		mov @_f,0
+		mov @j,0
 
 	_read_string_loop_1:
 		mov ecx, dword ptr @i
@@ -440,16 +434,16 @@ CalculateMatrix PROC,
 		push ecx
 		call crt_atoi
 		add esp,4
-		mov edx, dword ptr @_f
+		mov edx, dword ptr @j
 		push edx
 		imul edx,4
 		add edx, @Mat1
 		mov [edx],eax
 		pop edx
 		mov dword ptr @p, eax
-		mov eax, dword ptr @_f
+		mov eax, dword ptr @j
 		add eax,1
-		mov dword ptr @_f, eax
+		mov dword ptr @j, eax
 		mov dword ptr @k, 0
 	_clear_tmp_1:
 		push 16
@@ -478,7 +472,7 @@ CalculateMatrix PROC,
 		call RtlZeroMemory
 		mov @i,0
 		mov @k,0
-		mov @_f,0
+		mov @j,0
 
 	_read_string_loop_2:
 		mov ecx, dword ptr @i
@@ -527,16 +521,16 @@ CalculateMatrix PROC,
 		push ecx
 		call crt_atoi
 		add esp,4
-		mov edx, dword ptr @_f
+		mov edx, dword ptr @j
 		push edx
 		imul edx,4
 		add edx, @Mat2
 		mov [edx],eax
 		pop edx
 		mov dword ptr @p, eax
-		mov eax, dword ptr @_f
+		mov eax, dword ptr @j
 		add eax,1
-		mov dword ptr @_f, eax
+		mov dword ptr @j, eax
 		mov dword ptr @k, 0
 	_clear_tmp_2:
 		push 16
@@ -558,6 +552,105 @@ CalculateMatrix PROC,
 		jne _read_string_loop_2
 		;Reading string 2 end.
 		;--reding digits stable--
+		;simple calcuation:
+		;index x,y to index i
+		;row x, col y ( start from 0 )
+		;x*c + y	
+		;target matrix size: @_c2 * @_r1
+
+		push eax
+		mov eax, @_c2
+		imul eax, @_r1
+		imul eax, 4	;type dword
+		push eax
+		call AllocateAndZeroMemory
+		mov @MatRes, eax
+		pop eax
+		;@i
+		;@j
+		;@k
+		mov @i,0	;i
+		mov @j,0	;j
+		mov @k,0	;k
+		mov @n,0	;sum
+
+	_calc_multipy:
+		mov @i,0
+		jmp _calc_2
+	_calc_1:	;23
+		mov ecx, dword ptr @i
+		add ecx,1
+		mov dword ptr @i, ecx
+	_calc_2:	;25
+		mov edx, dword ptr @i
+		cmp edx, dword ptr @_c1
+		jge _calc_9
+		mov dword ptr @j, 0
+		jmp _calc_4
+	_calc_3:	;26
+		mov eax, dword ptr @j
+		add eax,1
+		mov dword ptr @j, eax
+	_calc_4:	;28
+		mov ecx, dword ptr @j
+		cmp ecx, dword ptr @_r2
+		jge _calc_8
+		mov dword ptr @n, 0
+		mov dword ptr @k, 0
+		jmp _calc_6
+	_calc_5:	;29
+		mov edx, dword ptr @k
+		add edx, 1
+		mov dword ptr @k, edx
+	_calc_6:	;31
+		mov eax, dword ptr @k
+		cmp eax, dword ptr @_r2
+		jge short _calc_7
+		;n = n + (mat1[i][k]) * (mat2[k][j]);
+		;[i][k] = i * _r1 + k
+		mov edx, dword ptr @Mat1
+		mov ecx, dword ptr @i
+		imul ecx, @_r1
+		add ecx, @k
+		imul ecx, 4
+		add ecx, edx
+		mov eax, dword ptr [ecx]
+		;[k][j] = k * _r2 + j
+		mov edx, dword ptr @Mat2
+		mov ecx, dword ptr @k
+		imul ecx, @_r2
+		add ecx, @j
+		imul ecx ,4
+		add ecx, edx
+		mov ecx, DWORD PTR [ecx]
+
+		imul eax, ecx
+		mov ecx, @n
+		add ecx, eax
+		
+		mov @n,ecx
+
+		jmp _calc_5
+		
+	_calc_7:	;30
+		;res[i][j] = sum;
+		mov edx, dword ptr @MatRes
+		mov ecx, dword ptr @i
+		imul ecx, @_r2
+		add ecx, @j
+		imul ecx, 4
+		add ecx, edx
+		mov eax , @n
+		mov dword ptr [ecx] , dword ptr eax
+		jmp _calc_3
+	_calc_8:	;27
+		jmp _calc_1
+	_calc_9:	;24
+
+	;--stable--
+	;test: normal matrix passed
+	;test: Square passed
+		
 		int 21h
 		;Not stable !
 	_normal_exit:
