@@ -1,6 +1,6 @@
 .386	;Using native 386 processor instructions sets
+		;Using x86 processor architect.
 .model flat, stdcall
-;.stack 65536
 option casemap:none
 
 ;includes
@@ -15,30 +15,21 @@ includelib	kernel32.lib
 include		msvcrt.inc	;alloing C native runtime functions
 includelib	msvcrt.lib
 
-;Function prototypes 
-;used to engaging exit
-;ExitProcess proto, dwExitcode: dword
-;Customzied functions
-PUBLIC getArgc
-PUBLIC getArgv
 ;constants
 .const
  
-;szError		db	'ERROR',0
-;szInfo		db 'Infomation',0
-szExceptionTooFewArguments	db "Invalid argument count(-1)",09h,0ah,0
-szExceptionAllcation		db "Unexpected allocation failure(-2)",09h,0ah,0
-szExceptionMatError			db "Unhandled math exception: Invalid matrix size(-3)",09h,0ah,0
+;szError		db	'ERROR', 0
+;szInfo		db 'Infomation', 0
+szExceptionTooFewArguments	db "Invalid argument count(-1)", 09h, 0ah, 0
+szExceptionAllcation		db "Unexpected allocation failure(-2)", 09h, 0ah, 0
+szExceptionMatError			db "Unhandled math exception: Invalid matrix size(-3)", 09h, 0ah, 0
 
-szd 	db "%d",0
-szs 	db "%s",0
-szCRLF 	db 09h,0ah,0	;Real CRLF
+szd 	db "%d", 0
+szs 	db "%s", 0
+szCRLF 	db 09h, 0ah, 0	;Real CRLF
 
-chBlank	db ' ',0
-chDeli 	db '"',0
-chCRLF 	db '\n',0	;This CRLF is incorrect due to it's two bytes wide
-					; thus we use 0dh to determine this charater.
-					; Which may cause error.
+chBlank	db ' ', 0
+chDeli 	db '"', 0
 
 ;datas
 .data
@@ -47,31 +38,27 @@ chCRLF 	db '\n',0	;This CRLF is incorrect due to it's two bytes wide
 ;prefix hf:
 ;	handle of file
 
-hfMat1 dword ?
-hfMat2 dword ?
-hfSave dword ?
-
 .code
 ;Get input arguments count
 ;para: null
 ;retn: dword, arguments count
 ;--stable--
 getArgc	PROC
-		local	@dwArgc
+		local	@dwArgc : dword
 		pushad
-		mov		@dwArgc, 0
+		mov		dword ptr @dwArgc, 0
 		invoke	GetCommandLine
 		mov		esi, eax 
 		cld			;operating direction: left to right
 	_skip_blanks:
 	;Initalizing
 		lodsb		;load first string character into al (byte type eax)
-		or		al, al ; = cmp al,EOF
+		or		al, al ; = cmp al, EOF
 		jz		_end 
 		cmp		al, chBlank ;recognition of blank char
 		jz		_skip_blanks ;skip blanks
 		dec		esi 
-		inc		@dwArgc
+		inc		dword ptr @dwArgc
 		
 	_get_argc_loop1:
 	;try operating arguments
@@ -97,7 +84,7 @@ getArgc	PROC
 		jmp		_get_argc_loop1 ;if paired
 	_end:
 		popad
-		mov		eax, @dwArgc
+		mov		eax,dword ptr @dwArgc
 		ret
 getArgc	ENDP
 
@@ -111,15 +98,15 @@ getArgc	ENDP
 ; @dwFlag:		When approached target, set to TRUE.
 ;return: no return.
 ;--stable--
-getArgv proc,
-		_dwArgv:		dword,
-		_lpReturn:		ptr byte,
+getArgv proc, 
+		_dwArgv:		dword, 
+		_lpReturn:		ptr byte, 
 		_dwSize:		dword
 		local	@dwArgv, @dwFlag
 		
 		pushad
 		inc		_dwArgv ; make it convenient to determine by @dwArgv
-		mov		@dwArgv, 0
+		mov		dword ptr @dwArgv, 0
 		mov		edi, _lpReturn 
  
 		invoke	GetCommandLine
@@ -134,12 +121,12 @@ getArgv proc,
 		jz		_skip_blanks
 		
 		dec		esi
-		inc		@dwArgv
-		mov		@dwFlag, FALSE; setting defalut value of @dwFlag
+		inc		dword ptr @dwArgv
+		mov		dword ptr @dwFlag, FALSE; setting defalut value of @dwFlag
 		mov		eax, _dwArgv 
-		cmp		eax, @dwArgv ; = cmp _dwArgv, @dwArgv
+		cmp		eax, dword ptr @dwArgv ; = cmp _dwArgv, @dwArgv
 		jnz		@F
-		mov		@dwFlag, TRUE ; setting flag to true if it's correct
+		mov		dword ptr @dwFlag, TRUE ; setting flag to true if it's correct
 	@@:
 	_core:
 		lodsb
@@ -153,7 +140,7 @@ getArgv proc,
 		jle		@F
 		;If approached the maximum chars count and the pair failed, exit.
 		;Do not contiune load stosb.
-		cmp		@dwFlag, TRUE
+		cmp		dword ptr @dwFlag, TRUE
 		jne		@F
 		;If its not target, do not load.
 		stosb
@@ -169,7 +156,7 @@ getArgv proc,
 		jz		_core
 		cmp		_dwSize, 1 
 		jle		@F 
-		cmp		@dwFlag, TRUE
+		cmp		dword ptr @dwFlag, TRUE
 		jne		@F 
 		stosb
 		dec		_dwSize
@@ -186,14 +173,14 @@ getArgv	endp
  
 ; deprecated
 ;--stable--
-;ZeroMemory PROC,
-;	_source: ptr byte,
-;	_dwSize: DWORD
+;ZeroMemory PROC, 
+;	_source: ptr byte, 
+;	_dwSize: dword
 ;	pushad
 ;	mov ecx, _dwSize
-;	xor eax,eax
+;	xor eax, eax
 ;	mov edi, [_source]
-;	rep stos BYTE ptr [edi]
+;	rep stos byte ptr [edi]
 ;	popad
 ;	leave
 ;	ret
@@ -208,8 +195,8 @@ getArgv	endp
 ;return:
 ; eax, the address of requested memory.
 ;--stable--
-gzalloc PROC,
-		_dwSize:	DWORD
+gzalloc PROC, 
+		_dwSize:	dword
 		local	@addr
 		pushad
 
@@ -217,12 +204,12 @@ gzalloc PROC,
 		push	_dwSize
 		push	GPTR
 		call	GlobalAlloc
-		cmp		eax,0
+		cmp		eax, 0
 		jz		allocation	;allocation failure loop
 
-		mov		@addr, eax
+		mov		dword ptr @addr, eax
 		popad
-		mov		eax, @addr
+		mov		eax,dword ptr @addr
 		ret
 gzalloc ENDP
 
@@ -234,26 +221,27 @@ gzalloc ENDP
 ;return:
 ; eax, row count.
 ;--stable--
-getMatrixRow PROC,
+getMatrixRow PROC, 
 		_str: ptr byte
-		local	@m:DWORD
+		local	@m:dword
 		pushad
-		mov		esi,_str
-		mov		@m,0
+		mov		esi, _str
+		mov		dword ptr @m, 0
 
 	_get_matrix_row_LOOP:
 		lodsb
-		or		al,al
+		or		al, al
 		jz		_get_matrix_row_END
-		cmp		al,0dh	;chCRLF = 0dh, 0ah
-		;inc esi
+		cmp		al, 0dh				;\r\n;
+									;\r = 0dh
+									;\n = 0ah
 		jnz		_get_matrix_row_LOOP
-		inc		@m
+		inc		dword ptr @m
 		jmp		_get_matrix_row_LOOP
 
 	_get_matrix_row_END:
 		popad
-		mov		eax,@m
+		mov		eax, dword ptr @m
 		add		eax, 1
 		ret
 getMatrixRow ENDP
@@ -266,110 +254,118 @@ getMatrixRow ENDP
 ;return:
 ; eax, column count.
 ;--stable--
-getMatrixCol PROC,
+getMatrixCol PROC, 
 		_str:	ptr byte
-		local	@m:DWORD
+		local	@m:dword
 		pushad
-		mov		esi,_str
-		mov		@m,0
+		mov		esi, _str
+		mov		dword ptr @m, 0
 
 	_get_matrix_col_LOOP:
 		lodsb
 		cmp		al, 0dh
 		jz		_get_matrix_col_END
-		cmp		al,20h
+		cmp		al, 20h					;' ' 
 		jnz		_get_matrix_col_LOOP
 		inc		@m
 		jmp		_get_matrix_col_LOOP
 
 	_get_matrix_col_END:
 		popad
-		mov		eax,@m
-		add		eax,1
+		mov		eax, @m
+		add		eax, 1
 		ret
 getMatrixCol ENDP
 
-
 ;Entrypoint.
 main PROC
-		local	@_argc:DWORD
+		;used pseudo-instruction local, which make it easier than
+		; ebp operations.
+		local	@_argc:dword
 
 		;pointers
-		local	@szMatPath1: 	ptr BYTE
-		local	@szMatPath2: 	ptr BYTE
-		local	@szSavePath: 	ptr BYTE 
-		local	@szMat1: 		ptr BYTE
-		local	@szMat2: 		ptr BYTE
-		local	@szSav: 		ptr BYTE
-		local	@Mat1: ptr DWORD
-		local	@Mat2: ptr DWORD
-		local	@MatRes: ptr DWORD
+		local	@szMatPath1: 	ptr byte
+		local	@szMatPath2: 	ptr byte
+		local	@szSavePath: 	ptr byte 
+		local	@szMat1: 		ptr byte
+		local	@szMat2: 		ptr byte
+		local	@szSav: 		ptr byte
+		local	@Mat1:			ptr dword
+		local	@Mat2:			ptr dword
+		local	@MatRes:		ptr dword
+		local	@p:				ptr dword	;for temporary pointer calculate
+		
+		local	@_r1:	dword
+		local	@_r2:	dword
+		local	@_c1:	dword
+		local	@_c2:	dword
 
-		local	@_r1:DWORD
-		local	@_r2:DWORD
-		local	@_c1:DWORD
-		local	@_c2:DWORD
 
 
-		local	@p: ptr DWORD	;for temporary pointer calculate
+		local	@i: dword
+		local	@j: dword
+		local	@k: dword
+		local	@n: dword
 
-		local	@i: DWORD
-		local	@j: DWORD
-		local	@k: DWORD
-		local	@n: DWORD
+		local	@tmp[16] :	byte
 
-		local	@tmp[16] : byte
-
-		local	@length: DWORD
-
+		local	@length:	dword
+		
+		;handles
+		local	@hFileMat1:	dword
+		local	@hFileMat2:	dword
+		local	@hFileSave:	dword
+	;for confusing deassembly 
+	;ignore this, this code wont be executed.
 	_anti_da1:
 		jz		_rc_1
 		jnz		_rc_1
-		db 0E8h,75h
-		db 00h
+		db		0E8h
+		db		75h
+		db		00h
 	_rc_1:
 		call	getArgc
-		mov		@_argc,eax
-		cmp		@_argc,4
+		mov		dword ptr @_argc, eax
+		cmp		dword ptr @_argc, 4
 		jnz		_exception_invalid_arguments
 
 		;Allocating memory space
 		push	260				;setting to 260 because this is the max length of win32 path.
 		call	gzalloc
-		mov		@szMatPath1,eax
+		mov		dword ptr @szMatPath1, eax
 
 		push	260
 		call	gzalloc
-		mov		@szMatPath2,eax
+		mov		dword ptr @szMatPath2, eax
 
 		push	260
 		call	gzalloc
-		mov		@szSavePath,eax
+		mov		dword ptr @szSavePath, eax
 
 		push	1000h
 		call	gzalloc
-		mov		@szMat1,eax
+		mov		dword ptr @szMat1, eax
 
 		push	1000h
 		call	gzalloc
-		mov		@szMat2,eax
+		mov		dword ptr @szMat2, eax
 
 		push	1000h
 		call	gzalloc
-		mov		@szSav,eax
+		mov		dword ptr @szSav, eax
 
 		push	100h
-		push	@szMatPath1
+		push	dword ptr @szMatPath1
 		push	1
 		call	getArgv
 
 		push	100h
-		push	@szMatPath2
+		push	dword ptr @szMatPath2
 		push	2
 		call	getArgv
 
 		push	100h
-		push	@szSavePath
+		push	dword ptr @szSavePath
 		push	3
 		call	getArgv
 
@@ -380,31 +376,31 @@ main PROC
 		push	0
 		push	FILE_SHARE_READ
 		push	GENERIC_READ
-		push	@szMatPath1
+		push	dword ptr @szMatPath1
 		call	CreateFile
 	_anti_da_2:
-		 push ebx
-         xor ebx, ebx
-         test ebx, ebx
-		 jnz _fc_2 + 1
-		 jz _rc_2
+		push	ebx
+        xor		ebx, ebx
+        test	ebx, ebx
+		jnz		_fc_2
+		jz		_rc_2
 	_fc_2:
-		db 0E8h
-		db 05h
-		db 77h 
+		db		0E8h
+		db		05h
+		db		77h 
 	_rc_2:
-		mov hfMat1,eax
+		mov		dword ptr @hFileMat1, eax
 
 		push	FILE_BEGIN
 		push	0
 		push	0
-		push	hfMat1
+		push	dword ptr @hFileMat1
 		call	SetFilePointer
 		;READ
 		push	NULL
 		push	100h
-		push	@szMat1
-		push	hfMat1
+		push	dword ptr @szMat1
+		push	dword ptr @hFileMat1
 		call	ReadFile
 
 		;Open File2
@@ -414,81 +410,81 @@ main PROC
 		push	0
 		push	FILE_SHARE_READ
 		push	GENERIC_READ
-		push	@szMatPath2
+		push	dword ptr @szMatPath2
 		call	CreateFile
 
-		mov hfMat2,eax
+		mov		dword ptr @hFileMat2, eax
 
 		push	FILE_BEGIN
 		push	0
 		push	0
-		push	hfMat2
+		push	dword ptr @hFileMat2
 		call	SetFilePointer
 		;READ
 		push	NULL
 		push	100h
-		push	@szMat2
-		push	hfMat2
+		push	dword ptr @szMat2
+		push	dword ptr @hFileMat2
 		call	ReadFile
 
-		mov		dword ptr @tmp,0 
+		mov		dword ptr @tmp, 0 
 
-		mov		@_r1, 0
-		mov		@_r2, 0
-		mov		@_c1, 0
-		mov		@_c2, 0
+		mov		dword ptr @_r1, 0
+		mov		dword ptr @_r2, 0
+		mov		dword ptr @_c1, 0
+		mov		dword ptr @_c2, 0
 	;Getting information of string martix.
-		push	@szMat1
+		push	dword ptr @szMat1
 		call	getMatrixRow
-		mov		@_r1,eax
+		mov		dword ptr @_r1, eax
 
-		push	@szMat1
+		push	dword ptr @szMat1
 		call	getMatrixCol
-		mov		@_c1,eax
+		mov		dword ptr @_c1, eax
 
-		push	@szMat2
+		push	dword ptr @szMat2
 		call	getMatrixRow
-		mov		@_r2,eax
+		mov		dword ptr @_r2, eax
 
-		push	@szMat2
+		push	dword ptr @szMat2
 		call	getMatrixCol
-		mov		@_c2,eax
+		mov		dword ptr @_c2, eax
 		
 	;test if matrix is appropriate
 		push	eax
-		mov		eax,@_c2
-		cmp		eax,@_r1
+		mov		eax, dword ptr @_c2
+		cmp		eax, dword ptr @_r1
 		jnz		_exception_size
 		pop		eax
 
 		push	eax
-		mov		eax, @_c1
-		imul	eax, @_r1
+		mov		eax, dword ptr @_c1
+		imul	eax, dword ptr @_r1
 		imul	eax, 4
 		push	eax
 		call	gzalloc
-		mov		@Mat1, eax
+		mov		dword ptr @Mat1, eax
 		pop		eax		
 
 		push	eax
-		mov		eax, @_c2
-		imul	eax, @_r2
+		mov		eax, dword ptr @_c2
+		imul	eax, dword ptr @_r2
 		imul	eax, 4
 		push	eax
 		call	gzalloc
-		mov		@Mat2, eax
+		mov		dword ptr @Mat2, eax
 		pop		eax
 
 		pushad
 		;getiing first string data
-		mov		@i,0
-		mov		@k,0
-		mov		@j,0
+		mov		dword ptr @i, 0
+		mov		dword ptr @k, 0
+		mov		dword ptr @j, 0
 
 	_read_string_loop_1:
 		mov		ecx, dword ptr @i
 		push	ecx
-		add		ecx, @szMat1
+		add		ecx, dword ptr @szMat1
 		movsx	edx, byte ptr [ecx]
 		pop		ecx
 		; if ( [edx] < '0'
@@ -501,7 +497,7 @@ main PROC
 		mov		edx, dword ptr @k
 		mov		eax, dword ptr @i
 		push	eax
-		add		eax, @szMat1
+		add		eax, dword ptr @szMat1
 		mov		cl, byte ptr [eax]
 		pop		eax
 		push	edx
@@ -512,70 +508,70 @@ main PROC
 		pop		eax
 		pop		edx
 
-		mov		edx,dword ptr @k
+		mov		edx, dword ptr @k
 		add		edx, 1
 		mov		dword ptr @k, edx
 		jmp		_inc_i_1
 	_is_digits_1:
 	;if char is digits, this will copy strings to tmp
-		cmp		dword ptr @k,0
+		cmp		dword ptr @k, 0
 		jne		short _is_not_digits_1
 		mov		eax, dword ptr @i
-		add		eax,1
+		add		eax, 1
 		mov		dword ptr @i, eax
 		jmp		_loop_end_1
 	_is_not_digits_1:
 	;if char is not digits, convert temp string to integer and storging.
-		cmp		@k,0
+		cmp		dword ptr @k, 0
 		jz		_clear_tmp_1
 		lea		ecx, dword ptr @tmp
 		push	ecx
 		call	crt_atoi
-		add		esp,4
+		add		esp, 4
 		mov		edx, dword ptr @j
 		push	edx
-		imul	edx,4
-		add		edx, @Mat1
-		mov		[edx],eax
+		imul	edx, 4
+		add		edx, dword ptr @Mat1
+		mov		[edx], eax
 		pop		edx
 		mov		dword ptr @p, eax
 		mov		eax, dword ptr @j
-		add		eax,1
+		add		eax, 1
 		mov		dword ptr @j, eax
 		mov		dword ptr @k, 0
 	_clear_tmp_1:
 		push	16
-		lea		eax, @tmp
+		lea		eax, dword ptr @tmp
 		push	eax
 		call	RtlZeroMemory
 	_inc_i_1:
 		mov		edx, dword ptr @i
 		add		edx, 1
-		mov		dword ptr @i,edx
+		mov		dword ptr @i, edx
 	_loop_end_1:
 		mov		eax, dword ptr @i
 		push	eax
-		add		eax, @szMat1
+		add		eax, dword ptr @szMat1
 		sub		eax, 1
 		movsx	ecx, byte ptr [eax]
 		pop		eax
-		test	ecx,ecx
+		test	ecx, ecx
 		jne		_read_string_loop_1
 		;Reading string 1 end.
 
 	
 		push	16
-		lea		eax, @tmp
+		lea		eax, dword ptr @tmp
 		push	eax
 		call	RtlZeroMemory
-		mov		@i,0
-		mov		@k,0
-		mov		@j,0
+		mov		dword ptr @i, 0
+		mov		dword ptr @k, 0
+		mov		dword ptr @j, 0
 
 	_read_string_loop_2:
 		mov		ecx, dword ptr @i
 		push	ecx
-		add		ecx, @szMat2
+		add		ecx, dword ptr @szMat2
 		movsx	edx, byte ptr [ecx]
 		pop		ecx
 		cmp		edx, 30h	;'0'
@@ -585,8 +581,8 @@ main PROC
 
 		mov		edx, dword ptr @k
 		mov		eax, dword ptr @i
-		push	eax
-		add		eax, @szMat2
+		push	eax			;protect possible eax value.
+		add		eax, dword ptr @szMat2
 		mov		cl, byte ptr [eax]
 		pop		eax
 		push	edx
@@ -597,92 +593,104 @@ main PROC
 		pop		eax
 		pop		edx
 
-		mov		edx,dword ptr @k
+		mov		edx, dword ptr @k
 		add		edx, 1
 		mov		dword ptr @k, edx
 		jmp		_inc_i_2
 	_is_digits_2:
 	;if char is digits, this will copy strings to tmp
-		cmp		dword ptr @k,0
+		cmp		dword ptr @k, 0
 		jne		short _is_not_digits_2
 		mov		eax, dword ptr @i
-		add		eax,1
+		add		eax, 1
 		mov		dword ptr @i, eax
 		jmp		_loop_end_2
 	_is_not_digits_2:
 	;if char is not digits, convert temp string to integer and storging.
-		cmp		@k,0
+		cmp		dword ptr @k, 0
 		jz		_clear_tmp_2
 		lea		ecx, dword ptr @tmp
 		push	ecx
 		call	crt_atoi
-		add		esp,4
+		add		esp, 4
 		mov		edx, dword ptr @j
 		push	edx
-		imul	edx,4
-		add		edx, @Mat2
-		mov		[edx],eax
+		imul	edx, 4
+		add		edx, dword ptr @Mat2
+		mov		[edx], eax
 		pop		edx
 		mov		dword ptr @p, eax
 		mov		eax, dword ptr @j
-		add		eax,1
+		add		eax, 1
 		mov		dword ptr @j, eax
 		mov		dword ptr @k, 0
 	_clear_tmp_2:
 		push	16
-		lea		eax, @tmp
+		lea		eax,dword ptr @tmp
 		push	eax
 		call	RtlZeroMemory
 	_inc_i_2:
 		mov		edx, dword ptr @i
 		add		edx, 1
-		mov		dword ptr @i,edx
+		mov		dword ptr @i, edx
 	_loop_end_2:
 		mov		eax, dword ptr @i
 		push	eax
-		add		eax, @szMat2
+		add		eax, dword ptr @szMat2
 		sub		eax, 1
 		movsx	ecx, byte ptr [eax]
 		pop		eax
-		test	ecx,ecx
+		test	ecx, ecx
 		jne		_read_string_loop_2
 		;Reading string 2 end.
 		;--reding digits stable--
 		;simple calcuation:
-		;index x,y to index i
+		;index x, y to index i
 		;row x, col y ( start from 0 )
 		;x*c + y	
 		;target matrix size: @_c2 * @_r1
 
 		push	eax
-		mov		eax, @_c2
-		imul	eax, @_r1
+		mov		eax, dword ptr @_c2
+		imul	eax, dword ptr @_r1
 		imul	eax, 4	;type dword
 		push	eax
 		call	gzalloc
-		mov		@MatRes, eax
+		mov		dword ptr @MatRes, eax
 		pop		eax
-		mov		@i,0
-		mov		@j,0
-		mov		@k,0
-		mov		@n,0
-
+		mov		dword ptr @i, 0
+		mov		dword ptr @j, 0
+		mov		dword ptr @k, 0
+		mov		dword ptr @n, 0
+	
+	;for (@i = 0; @i < @_c1; @i++)
+	;{
+	;	for (@j = 0; @j < @_r2; @j++)
+	;	{
+	;		@n = 0;
+	;		for (@k = 0; @k < @_r2; @k++)
+	;		{
+	;			@n = @n + (@Mat1[@i][@k]) * (@Mat2[@k][@j]);
+	;		}
+	;		@MatRes[@i][@j] = @n;
+	;	}
+	;}
 	_calc_multipy:
-		mov		@i,0
+		mov		dword ptr @i, 0
 		jmp		_calc_2
 	_calc_1:
 		mov		ecx, dword ptr @i
-		add		ecx,1
+		add		ecx, 1
 		mov		dword ptr @i, ecx
 	_calc_2:
 		mov		edx, dword ptr @i
 		cmp		edx, dword ptr @_c1
-		jge		_calc_9
+		jge		_end_calc_matrix
 		mov		dword ptr @j, 0
 		jmp		_calc_4
 	_calc_3:
 		mov		eax, dword ptr @j
-		add		eax,1
+		add		eax, 1
 		mov		dword ptr @j, eax
 	_calc_4:
 		mov		ecx, dword ptr @j
@@ -690,91 +698,93 @@ main PROC
 		jge		_calc_8
 		mov		dword ptr @n, 0
 		mov		dword ptr @k, 0
-		jmp		_calc_6
+		jmp		_calc_cell
 	_calc_5:
 		mov		edx, dword ptr @k
 		add		edx, 1
 		mov		dword ptr @k, edx
-	_calc_6:
+	_calc_cell:
 		mov		eax, dword ptr @k
 		cmp		eax, dword ptr @_r2
-		jge		short _calc_7
+		jge		short _set_matrix_result_cell_value
 		;n = n + (mat1[i][k]) * (mat2[k][j]);
 		;[i][k] = i * _r1 + k
 		mov		edx, dword ptr @Mat1
 		mov		ecx, dword ptr @i
-		imul	ecx, @_r1
-		add		ecx, @k
+		imul	ecx, dword ptr @_r1
+		add		ecx, dword ptr @k
 		imul	ecx, 4
 		add		ecx, edx
 		mov		eax, dword ptr [ecx]
 		;[k][j] = k * _r2 + j
 		mov		edx, dword ptr @Mat2
 		mov		ecx, dword ptr @k
-		imul	ecx, @_r2
-		add		ecx, @j
-		imul	ecx ,4
+		imul	ecx, dword ptr @_r2
+		add		ecx, dword ptr @j
+		imul	ecx , 4
 		add		ecx, edx
-		mov		ecx, DWORD PTR [ecx]
+		mov		ecx, dword ptr [ecx]
 
 		imul	eax, ecx
-		mov		ecx, @n
+		mov		ecx, dword ptr @n
 		add		ecx, eax
 		
-		mov		@n,ecx
+		mov		dword ptr @n, ecx
 
 		jmp		_calc_5
 		
-	_calc_7:
+	_set_matrix_result_cell_value:
 		;res[i][j] = sum;
 		mov		edx, dword ptr @MatRes
 		mov		ecx, dword ptr @i
-		imul	ecx, @_r2
-		add		ecx, @j
+		imul	ecx, dword ptr @_r2
+		add		ecx, dword ptr @j
 		imul	ecx, 4
 		add		ecx, edx
-		mov		eax , @n
+		mov		eax , dword ptr @n
 		mov		dword ptr [ecx] , dword ptr eax
 		jmp		_calc_3
 	_calc_8:
 		jmp		_calc_1
-	_calc_9:
+	_end_calc_matrix:
 		popad 
 		
 		push	1000h
 		call	gzalloc
-		mov		@szSav,eax
+		mov		dword ptr @szSav, eax
 
 		mov		dword ptr @length, 0
 
 	_save_1:
 		mov		dword ptr @i, 0
-		jmp		_save_3
+		jmp		_write_to_str
 	_save_2:
 		mov		eax, dword ptr @i
 		add		eax, 1
 		mov		dword ptr @i, eax
-	_save_3:
-		mov		eax, @_c2
-		imul	eax, @_r1
+	_write_to_str:
+		;ssprintf(@szSave + strlen(@szSav), offset "%d", @Mat[@i])
+		mov		eax, dword ptr @_c2
+		imul	eax, dword ptr @_r1
 		cmp		dword ptr @i, eax
 		jge		 _save_6
 		mov		ecx, dword ptr @i
 		push	ecx
 		imul	ecx, 4
-		add		ecx, @MatRes
-		mov		edx, dword ptr [ecx];check here
+		add		ecx, dword ptr @MatRes
+		mov		edx, dword ptr [ecx]
 		pop		ecx
 		push	edx
 		push	offset szd
 		mov		eax, dword ptr @szSav
 		push	eax
 		call	crt_strlen
-		add		esp,4
+		add		esp, 4
 		add		eax, dword ptr @szSav
 		push	eax
 		call	crt_sprintf
-		add		esp,12
+		add		esp, 12
+		;if( @i % @_c2 != 0) 
 		mov		eax, dword ptr @i
 		add		eax, 1
 		cdq			;Convert Double to Quad, prepare for dividing
@@ -782,7 +792,8 @@ main PROC
 					; whether should postfix a blank or crlf
 		idiv	dword ptr @_c2
 		test	edx, edx
-		jne		_save_4
+		jne		_write_blank
+		;else ssprintf(@szSave + strlen(@szSav), offset "\r\n")
 		push	offset szCRLF
 		mov		ecx, dword ptr @szSav
 		push	ecx
@@ -793,16 +804,17 @@ main PROC
 		call	crt_sprintf
 		add		esp, 8
 		jmp		_save_5
-	_save_4:
+	_write_blank:
+		;ssprintf(@szSave + strlen(@szSav), offset " ")
 		push	offset chBlank
 		mov		edx, dword ptr @szSav
 		push	edx
 		call	crt_strlen
-		add		esp,4
+		add		esp, 4
 		add		eax, dword ptr @szSav
 		push	eax
 		call	crt_sprintf
-		add		esp,8
+		add		esp, 8
 	_save_5:
 		jmp		_save_2
 	_save_6:
@@ -810,12 +822,12 @@ main PROC
 		mov		eax, dword ptr @szSav
 		push	eax
 		call	crt_strlen
-		add		esp,4
+		add		esp, 4
 		push	eax
 		mov		ecx, dword ptr @szSav
 		push	ecx
 		call	GlobalReAlloc
-		mov		@szSav,eax
+		mov		dword ptr @szSav, eax
 		;save to file
 		
 		push	0
@@ -824,19 +836,19 @@ main PROC
 		push	0
 		push	FILE_SHARE_WRITE
 		push	GENERIC_WRITE
-		push	@szSavePath
+		push	dword ptr @szSavePath
 		call	CreateFile
-		mov		hfSave,eax
+		mov		dword ptr @hFileSave, eax
 
 		push	NULL
-		lea		eax, @n
+		lea		eax, dword ptr @n
 		push	eax
-		push	@szSav
+		push	dword ptr @szSav
 		call	crt_strlen
-		add		esp,4
+		add		esp, 4
 		push	eax
-		push	@szSav
-		push	hfSave
+		push	dword ptr @szSav
+		push	dword ptr @hFileSave
 		call	WriteFile
 		cmp		eax, 0
 		jnz		_no_error
@@ -844,37 +856,37 @@ main PROC
 		int		21h
 		
 	_no_error:
-		push	@szSav
+		push	dword ptr @szSav
 		push	offset szs
 		call	crt_printf
-		add		esp ,8
+		add		esp , 8
 		;free spaces
-		push	@szMatPath1
+		push	dword ptr @szMatPath1
 		call	GlobalFree
-		push	@szMatPath2
+		push	dword ptr @szMatPath2
 		call	GlobalFree
-		push	@szSavePath
-		call	GlobalFree
-
-		push	@szMat1
-		call	GlobalFree
-		push	@szMat2
-		call	GlobalFree
-		push	@szSav
+		push	dword ptr @szSavePath
 		call	GlobalFree
 
-		push	@Mat1
+		push	dword ptr @szMat1
 		call	GlobalFree
-		push	@Mat2
+		push	dword ptr @szMat2
 		call	GlobalFree
-		push	@MatRes
+		push	dword ptr @szSav
+		call	GlobalFree
+
+		push	dword ptr @Mat1
+		call	GlobalFree
+		push	dword ptr @Mat2
+		call	GlobalFree
+		push	dword ptr @MatRes
 		call	GlobalFree
 		;close handles
-		push	hfMat1
+		push	dword ptr @hFileMat1
 		call	CloseHandle
-		push	hfMat2
+		push	dword ptr @hFileMat2
 		call	CloseHandle
-		push	hfSave
+		push	dword ptr @hFileSave
 		call	CloseHandle
 
 		jmp		_normal_exit
@@ -884,7 +896,7 @@ main PROC
 		push	offset szExceptionMatError
 		push	offset szs
 		call	crt_printf
-		add		esp,8
+		add		esp, 8
 		;push	MB_ICONERROR
 		;push	offset szError
 		;push	offset szExceptionMatError
@@ -897,7 +909,7 @@ main PROC
 		push	offset szExceptionTooFewArguments
 		push	offset szs
 		call	crt_printf
-		add		esp,8
+		add		esp, 8
 		;push	MB_ICONERROR
 		;push	offset szError
 		;push	offset szExceptionTooFewArguments
