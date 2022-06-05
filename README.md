@@ -35,7 +35,7 @@ main.exe 1.txt 2.txt result.txt
 
 * 本代码大量使用原生语法,即很少使用伪代码
 * 本程序使用WinAPI和C运行时函数
-* 本程序的自定义函数均遵循`stdcall`调用约定
+* 本程序的自定义过程均遵循`stdcall`调用约定
 
 ## 说明
 
